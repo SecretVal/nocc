@@ -20,6 +20,10 @@ typedef enum {
     TK_Minus,
     TK_Ast,
     TK_Slash,
+    TK_Colon,
+    TK_Equals,
+    TK_LeftParen,
+    TK_RightParen,
 } TokenKind;
 
 typedef struct {
@@ -43,8 +47,7 @@ typedef struct {
 } Lexer;
 
 char consume_char(Lexer *lex) {
-    lex->current_ch = lex->input[lex->pos];
-    lex->pos++;
+    lex->current_ch = lex->input[lex->pos++];
     return lex->current_ch; 
 }
 
@@ -104,6 +107,18 @@ void lex_punct(Lexer *lex) {
         case '/':
             t.kind = TK_Slash;
             break;
+        case ':':
+            t.kind = TK_Colon;
+            break;
+        case '=':
+            t.kind = TK_Equals;
+            break;
+        case '(':
+            t.kind = TK_LeftParen;
+            break;
+        case ')':
+            t.kind = TK_RightParen;
+            break;
         default:
             break;
     }
@@ -112,6 +127,7 @@ void lex_punct(Lexer *lex) {
 }
 
 void lex(Lexer *lex) {
+    if (!lex->input) return;
     consume_char(lex);
     while (lex->current_ch) {
         if (isspace(lex->current_ch)) consume_char(lex);
@@ -119,6 +135,45 @@ void lex(Lexer *lex) {
 
         if (isdigit(lex->current_ch)) lex_number(lex);
         if (isalpha(lex->current_ch)) lex_ident(lex);
+    }
+}
+
+void debug_print_token(Token t) {
+    switch (t.kind) {
+        case TK_Number:
+            log(STC_DEBUG, "Number: %ld", t.value.num);
+            break;
+        case TK_Ident:
+            log(STC_DEBUG, "Ident: %s", t.value.ident);
+            break;
+        case TK_Plus:
+            log(STC_DEBUG, "Plus");
+            break;
+        case TK_Minus:
+            log(STC_DEBUG, "Minus");
+            break;
+        case TK_Ast:
+            log(STC_DEBUG, "Asterisk");
+            break;
+        case TK_Slash:
+            log(STC_DEBUG, "Slash");
+            break;
+        case TK_Error:
+            log(STC_DEBUG, "Error");
+        case TK_Colon:
+            log(STC_DEBUG, "Colon");
+            break;
+        case TK_Equals:
+            log(STC_DEBUG, "Equals");
+            break;
+        case TK_LeftParen:
+            log(STC_DEBUG, "LeftParen");
+            break;
+        case TK_RightParen:
+            log(STC_DEBUG, "RightParen");
+            break;
+        default:
+            break;
     }
 }
 
@@ -138,30 +193,7 @@ int main(int argc, char **argv) {
     lex(&lexer);
     for (size_t i = 0; i < lexer.tokens.count; ++i) {
         Token t = lexer.tokens.items[i];
-        switch (t.kind) {
-            case TK_Number:
-                log(STC_DEBUG, "Got number: %ld", t.value.num);
-                break;
-            case TK_Ident:
-                log(STC_DEBUG, "Got ident: %s", t.value.ident);
-                break;
-            case TK_Plus:
-                log(STC_DEBUG, "Got Plus");
-                break;
-            case TK_Minus:
-                log(STC_DEBUG, "Got Minus");
-                break;
-            case TK_Ast:
-                log(STC_DEBUG, "Got Asterisk");
-                break;
-            case TK_Slash:
-                log(STC_DEBUG, "Got Slash");
-                break;
-            case TK_Error:
-                log(STC_DEBUG, "Got Error");
-            default:
-                break;
-        }
+        debug_print_token(t);
     }
     return 0;
 }
