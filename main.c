@@ -5,11 +5,6 @@
 #define STC_STRIP_PREFIX
 #include <stc.h> 
 
-typedef union {
-    unsigned long long num;
-    char *ident;
-} TokenValue;
-
 typedef enum {
     TK_Error,
 
@@ -28,7 +23,10 @@ typedef enum {
 
 typedef struct {
     TokenKind kind;
-    TokenValue value;
+    union {
+        unsigned long long num;
+        char *ident;
+    } as;
     size_t row;
     size_t col;
 } Token;
@@ -63,7 +61,7 @@ void lex_number(Lexer *lex) {
 
     da_push(&lex->tokens, ((Token){
         .kind = TK_Number,
-        .value = {
+        .as = {
             .num = n,
         },
     }));
@@ -79,7 +77,7 @@ void lex_ident(Lexer *lex) {
 
     da_push(&lex->tokens, ((Token){
         .kind = TK_Ident,
-        .value = {
+        .as = {
             .ident = sb.items,
         },
     }));
@@ -153,10 +151,10 @@ void lex(Lexer *lex) {
 void debug_print_token(Token t) {
     switch (t.kind) {
         case TK_Number:
-            log(STC_DEBUG, "Number: %ld", t.value.num);
+            log(STC_DEBUG, "Number: %ld", t.as.num);
             break;
         case TK_Ident:
-            log(STC_DEBUG, "Ident: %s", t.value.ident);
+            log(STC_DEBUG, "Ident: %s", t.as.ident);
             break;
         case TK_Plus:
             log(STC_DEBUG, "Plus");
