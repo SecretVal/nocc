@@ -242,13 +242,13 @@ typedef struct {
     Tokens tokens;
     Statements stmts;
     size_t pos;
-} Parser;
+} Ast;
 
-Token consume_token(Parser *par) {
+Token consume_token(Ast *par) {
     return par->tokens.items[par->pos++];
 }
 
-void parse_number(Parser *par) {
+void parse_number(Ast *par) {
     Token t = consume_token(par);
 
     switch (t.kind) {
@@ -268,7 +268,7 @@ void parse_number(Parser *par) {
     }
 }
 
-void parse(Parser *par) {
+void parse(Ast *par) {
     while (par->pos < par->tokens.count) {
         Token t = par->tokens.items[par->pos];
         switch (t.kind) {
@@ -298,12 +298,12 @@ int main(int argc, char **argv) {
         Token t = lexer.tokens.items[i];
         print_token(t);
     }
-    Parser parser = {
+    Ast ast = {
         .tokens = lexer.tokens,
     };
-    parse(&parser);
-    for (size_t i = 0; i < parser.stmts.count; ++i) {
-        Statement s = parser.stmts.items[i];
+    parse(&ast);
+    for (size_t i = 0; i < ast.stmts.count; ++i) {
+        Statement s = ast.stmts.items[i];
         print_stmt(s);
     }
     return 0;
