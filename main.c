@@ -75,17 +75,12 @@ void lex_ident(Lexer *lex) {
         da_push(&sb, lex->current_ch);
         consume_char(lex);
     }
-
-    // TODO: WHY?
-    StringBuilder final = {0};
-    for (size_t i = 0; i < sb.count; ++i) {
-        da_push(&final, sb.items[i]);
-    }
+    da_push(&sb, '\0');
 
     da_push(&lex->tokens, ((Token){
         .kind = TK_Ident,
         .value = {
-            .ident = final.items,
+            .ident = sb.items,
         },
     }));
 }
