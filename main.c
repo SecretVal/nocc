@@ -71,7 +71,7 @@ void lex_number(Lexer *lex) {
 
 void lex_ident(Lexer *lex) {
     StringBuilder sb = {0};
-    while (isalpha(lex->current_ch)) {
+    while (isalnum(lex->current_ch)) {
         da_push(&sb, lex->current_ch);
         consume_char(lex);
     }
@@ -130,11 +130,28 @@ void lex(Lexer *lex) {
     if (!lex->input) return;
     consume_char(lex);
     while (lex->current_ch) {
-        if (isspace(lex->current_ch)) consume_char(lex);
-        if (ispunct(lex->current_ch)) lex_punct(lex);
+        if (isspace(lex->current_ch)) {
+            consume_char(lex);
+            continue;
+        }
 
-        if (isdigit(lex->current_ch)) lex_number(lex);
-        if (isalpha(lex->current_ch)) lex_ident(lex);
+        if (ispunct(lex->current_ch)) {
+            lex_punct(lex);
+            continue;
+        }
+
+        if (isdigit(lex->current_ch)) {
+            lex_number(lex);
+            continue;
+        }
+
+        if (isalnum(lex->current_ch)) {
+            lex_ident(lex);
+            continue;
+        }
+
+        da_push(&lex->tokens,(Token){.kind = TK_Error});
+        consume_char(lex);
     }
 }
 
@@ -160,6 +177,7 @@ void debug_print_token(Token t) {
             break;
         case TK_Error:
             log(STC_DEBUG, "Error");
+            break;
         case TK_Colon:
             log(STC_DEBUG, "Colon");
             break;

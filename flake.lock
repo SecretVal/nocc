@@ -103,11 +103,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1740667648,
-        "narHash": "sha256-6igRWSeLT5+cGRNOC4/2GfGrb7b2S6rKBnxxdgcNu6M=",
+        "lastModified": 1740830231,
+        "narHash": "sha256-nl/ed/FYduSwPIcCz3VPRDheK/iZ8hnw+UVIqBDaz2c=",
         "owner": "secretval",
         "repo": "stc",
-        "rev": "6555f95d8fd058a14ced6db622966a6389ac0605",
+        "rev": "2054ac872afe791fe11b4d62a1316d4b684e2cd9",
         "type": "github"
       },
       "original": {
