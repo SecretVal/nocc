@@ -148,7 +148,7 @@ void lex(Lexer *lex) {
     }
 }
 
-void debug_print_token(Token t) {
+void print_token(Token t) {
     switch (t.kind) {
         case TK_Number:
             log(STC_DEBUG, "Number: %ld", t.as.num);
@@ -188,6 +188,98 @@ void debug_print_token(Token t) {
     }
 }
 
+typedef enum {
+    EK_NumberExpression,
+} ExpressionKind;
+
+typedef unsigned long long NumberExpression;
+
+typedef struct {
+    ExpressionKind kind;
+    union {
+        NumberExpression num;
+    } as;
+} Expression;
+
+void print_expr(Expression expr) {
+    switch (expr.kind) {
+        case EK_NumberExpression:
+            log(STC_DEBUG, "Expr: Number(%ld)", expr.as.num);
+            break;
+        default:
+            todo(__LINE__);
+    }
+}
+
+typedef enum {
+    SK_Expression,
+} StatementKind;
+
+typedef struct {
+    StatementKind kind;
+    union {
+        Expression expr;
+    } as;
+} Statement;
+
+void print_stmt(Statement s) {
+    switch (s.kind) {
+        case SK_Expression:
+            print_expr(s.as.expr);
+            break;
+        default:
+            todo(__LINE__);
+    }
+}
+
+typedef struct {
+    Statement *items;
+    size_t count;
+    size_t cap;
+} Statements;
+
+typedef struct {
+    Tokens tokens;
+    Statements stmts;
+    size_t pos;
+} Parser;
+
+Token consume_token(Parser *par) {
+    return par->tokens.items[par->pos++];
+}
+
+void parse_number(Parser *par) {
+    Token t = consume_token(par);
+
+    switch (t.kind) {
+        case TK_Number:
+            da_push(&par->stmts, ((Statement){
+                .kind = SK_Expression,
+                .as.expr = (Expression) {
+                    .kind = EK_NumberExpression,
+                    .as.num = t.as.num,
+                },
+            }));
+            break;
+        default:
+            log(STC_ERROR, "Expected NumberExpression");
+            exit(1);
+            break;
+    }
+}
+
+void parse(Parser *par) {
+    while (par->pos < par->tokens.count) {
+        Token t = par->tokens.items[par->pos];
+        switch (t.kind) {
+            case TK_Number:
+                parse_number(par);
+                break;
+            default:
+                todo("Not implemented yet");
+        }
+    }
+}
 int main(int argc, char **argv) {
     (void*)shift(argv, argc);
     if (argc < 1) {
@@ -204,7 +296,15 @@ int main(int argc, char **argv) {
     lex(&lexer);
     for (size_t i = 0; i < lexer.tokens.count; ++i) {
         Token t = lexer.tokens.items[i];
-        debug_print_token(t);
+        print_token(t);
+    }
+    Parser parser = {
+        .tokens = lexer.tokens,
+    };
+    parse(&parser);
+    for (size_t i = 0; i < parser.stmts.count; ++i) {
+        Statement s = parser.stmts.items[i];
+        print_stmt(s);
     }
     return 0;
 }
