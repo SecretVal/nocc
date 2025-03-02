@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <ctype.h>
+#include <stdbool.h>
 
 #define STC_IMPLEMENTATION
 #define STC_STRIP_PREFIX
 #include <stc.h> 
 
 typedef enum {
-    TK_Error,
+    TK_Error = 0,
 
     TK_Number,
     TK_Ident,
@@ -23,6 +24,7 @@ typedef enum {
 
 typedef struct {
     TokenKind kind;
+    char *value; 
     union {
         unsigned long long num;
         char *ident;
@@ -51,16 +53,18 @@ char consume_char(Lexer *lex) {
 
 void lex_number(Lexer *lex) {
     unsigned long long n = 0;
+    StringBuilder n_char = {0};
 
     while(isdigit(lex->current_ch)) {
         n = n * 10 + lex->current_ch - '0';
+        da_push(&n_char, lex->current_ch);
 
         consume_char(lex);
     }
 
-
     da_push(&lex->tokens, ((Token){
         .kind = TK_Number,
+        .value = n_char.items,
         .as = {
             .num = n,
         },
@@ -77,6 +81,7 @@ void lex_ident(Lexer *lex) {
 
     da_push(&lex->tokens, ((Token){
         .kind = TK_Ident,
+        .value = sb.items,
         .as = {
             .ident = sb.items,
         },
@@ -90,27 +95,35 @@ void lex_punct(Lexer *lex) {
     switch (c) {
         case '+':
             t.kind = TK_Plus;
+            t.value = "+";
             break;
         case '-':
             t.kind = TK_Minus;
+            t.value = "-";
             break;
         case '*':
             t.kind = TK_Ast;
+            t.value = "*";
             break;
         case '/':
             t.kind = TK_Slash;
+            t.value = "/";
             break;
         case ':':
             t.kind = TK_Colon;
+            t.value = ":";
             break;
         case '=':
             t.kind = TK_Equals;
+            t.value = "=";
             break;
         case '(':
             t.kind = TK_LeftParen;
+            t.value = "(";
             break;
         case ')':
             t.kind = TK_RightParen;
+            t.value = ")";
             break;
         default:
             break;
@@ -146,6 +159,21 @@ void lex(Lexer *lex) {
         da_push(&lex->tokens,(Token){.kind = TK_Error});
         consume_char(lex);
     }
+}
+
+bool is_op(Token t) {
+    bool is = false;
+    switch(t.kind) {
+        case TK_Plus:
+        case TK_Minus:
+        case TK_Ast:
+        case TK_Slash:
+            is = true;
+            break;
+        default:
+            break;
+    }
+    return is;
 }
 
 void print_token(Token t) {
@@ -188,28 +216,35 @@ void print_token(Token t) {
     }
 }
 
+typedef struct Expression Expression;
+
 typedef enum {
     EK_NumberExpression,
+    EK_BinaryExpression,
 } ExpressionKind;
 
 typedef unsigned long long NumberExpression;
 
+typedef enum {
+    Op_Plus,
+    Op_Minus,
+    Op_Ast,
+    Op_Slash,
+} Operator;
+
 typedef struct {
+    Expression *lhs;
+    Operator op;
+    Expression *rhs;
+} BinaryExpression;
+
+struct Expression {
     ExpressionKind kind;
     union {
         NumberExpression num;
+        BinaryExpression bin;
     } as;
-} Expression;
-
-void print_expr(Expression expr) {
-    switch (expr.kind) {
-        case EK_NumberExpression:
-            log(STC_DEBUG, "Expr: Number(%ld)", expr.as.num);
-            break;
-        default:
-            todo(__LINE__);
-    }
-}
+};
 
 typedef enum {
     SK_Expression,
@@ -222,64 +257,148 @@ typedef struct {
     } as;
 } Statement;
 
-void print_stmt(Statement s) {
-    switch (s.kind) {
-        case SK_Expression:
-            print_expr(s.as.expr);
-            break;
-        default:
-            todo(__LINE__);
-    }
-}
-
 typedef struct {
     Statement *items;
     size_t count;
     size_t cap;
-} Statements;
-
-typedef struct {
-    Tokens tokens;
-    Statements stmts;
-    size_t pos;
 } Ast;
 
-Token consume_token(Ast *par) {
-    return par->tokens.items[par->pos++];
+void print_ast(Ast ast) {
+    println("- Ast:");
+    for (size_t i = 0; i < ast.count; ++i) {
+        Statement s = ast.items[i];
+        switch (s.kind) {
+            case SK_Expression:
+                println("  - Expression:");
+                Expression expr = s.as.expr;
+                switch (expr.kind) {
+                    case EK_NumberExpression:
+                        println("    - NumberExpression: %ld", expr.as.num);
+                        break;
+                    case EK_BinaryExpression:
+                        println("    - BinaryExpression");
+                        println("      - lhs: %d", expr.as.bin.lhs->as.num);
+                        printf("       - op: ");
+                        switch (expr.as.bin.op) {
+                            case Op_Plus:
+                                println("Plus");
+                                break;
+                            case Op_Minus:
+                                println("Minus");
+                                break;
+                            case Op_Ast:
+                                println("Asterisk");
+                                break;
+                            case Op_Slash:
+                                println("Slash");
+                                break;
+                        }
+                        println("      - lhs: %d", expr.as.bin.rhs->as.num);
+                        break;
+                    default:
+                        todo("Printing ast for that Expression is not implemented yet! Sry");
+                }
+                break;
+            default:
+                todo("Printing ast for that statement is not implemented yet! Sry");
+        }
+
+    }
 }
 
-void parse_number(Ast *par) {
-    Token t = consume_token(par);
+typedef struct {
+    Ast ast;
+    Tokens *tokens;
+    size_t pos;
+} Parser;
+
+Token consume_token(Parser *parser) {
+    return parser->tokens->items[parser->pos++];
+}
+
+Expression *parse_expr(Parser *parser, bool look_ahead);
+Statement *parse_stmt(Parser *parser);
+
+NumberExpression *parse_number(Parser *parser) {
+    Token t = consume_token(parser);
+    NumberExpression *e = malloc(sizeof(NumberExpression));
 
     switch (t.kind) {
         case TK_Number:
-            da_push(&par->stmts, ((Statement){
-                .kind = SK_Expression,
-                .as.expr = (Expression) {
-                    .kind = EK_NumberExpression,
-                    .as.num = t.as.num,
-                },
-            }));
+            e = &t.as.num;
             break;
         default:
             log(STC_ERROR, "Expected NumberExpression");
             exit(1);
             break;
     }
+
+    return e;
 }
 
-void parse(Ast *par) {
-    while (par->pos < par->tokens.count) {
-        Token t = par->tokens.items[par->pos];
-        switch (t.kind) {
-            case TK_Number:
-                parse_number(par);
-                break;
-            default:
-                todo("Not implemented yet");
-        }
+Operator parse_operator(Parser *parser) {
+    Token t = consume_token(parser);
+    switch (t.kind) {
+        case TK_Plus:
+            return Op_Plus;
+            break;
+        case TK_Minus:
+            return Op_Minus;
+            break;
+        case TK_Ast:
+            return Op_Ast;
+            break;
+        case TK_Slash:
+            return Op_Slash;
+            break;
+        default:
+            log(STC_ERROR, "Expected Operator");
+            exit(1);
     }
 }
+
+BinaryExpression* parse_bin_expr(Parser *parser) {
+    BinaryExpression *e = malloc(sizeof(BinaryExpression));
+    e->lhs = parse_expr(parser, false);
+    e->op = parse_operator(parser);
+    e->rhs = parse_expr(parser, false);
+    return e;
+}
+
+Expression *parse_expr(Parser *parser, bool look_ahead) {
+    Token t = parser->tokens->items[parser->pos];
+    Expression *e = malloc(sizeof(Expression));
+    switch (t.kind) {
+        case TK_Number:
+            if (look_ahead && is_op(parser->tokens->items[parser->pos + 1])) {
+                e->kind = EK_BinaryExpression;
+                e->as.bin = *parse_bin_expr(parser);
+            } else {
+                e->kind = EK_NumberExpression;
+                e->as.num = *parse_number(parser);
+                break;
+            }
+            break;
+        default:
+            log(STC_ERROR, "`%s` is not an expression", t.value);
+            exit(1);
+    }
+    return e;
+}
+
+Statement parse_statement(Parser *parser) {
+    return (Statement) {
+        .kind = SK_Expression,
+        .as.expr = *parse_expr(parser, true),
+    };
+}
+
+void parse(Parser *parser) {
+    while (parser->pos < parser->tokens->count) {
+        da_push(&parser->ast, parse_statement(parser));
+    }
+}
+
 int main(int argc, char **argv) {
     (void*)shift(argv, argc);
     if (argc < 1) {
@@ -294,17 +413,15 @@ int main(int argc, char **argv) {
         .input = file_content.items,
     };
     lex(&lexer);
-    for (size_t i = 0; i < lexer.tokens.count; ++i) {
-        Token t = lexer.tokens.items[i];
-        print_token(t);
-    }
-    Ast ast = {
-        .tokens = lexer.tokens,
+    // TODO: Add a flag to output tokens and ast
+    /*for (size_t i = 0; i < lexer.tokens.count; ++i) {*/
+    /*    Token t = lexer.tokens.items[i];*/
+    /*    print_token(t);*/
+    /*}*/
+    Parser parser = {
+        .tokens = &lexer.tokens,
     };
-    parse(&ast);
-    for (size_t i = 0; i < ast.stmts.count; ++i) {
-        Statement s = ast.stmts.items[i];
-        print_stmt(s);
-    }
+    parse(&parser);
+    print_ast(parser.ast);
     return 0;
 }

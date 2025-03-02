@@ -10,7 +10,9 @@ void build(int argc, char **argv) {
     Cmd cmd = {0};
     cmd_push(&cmd, STC_COMPILER);
     cmd_push(&cmd, "-o", project_name);
-    cmd_push(&cmd, "-Wall", "-Wextra", "-ggdb");
+    cmd_push(&cmd, "-Wall", "-Wextra", "-ggdb", "-pedantic");
+    cmd_push(&cmd, "-Wno-return-local-addr");
+
     cmd_push(&cmd, "main.c");
     if (argc >= 1) {
         char *sub_cmd = shift(argv, argc);
